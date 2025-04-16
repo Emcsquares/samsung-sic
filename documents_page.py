@@ -1,4 +1,6 @@
 import streamlit as st
+from style import apply_custom_styles
+
 from db import save_file, get_all_files, download_all_files
 # Add auto-refresh function (requires streamlit_autorefresh)
 try:

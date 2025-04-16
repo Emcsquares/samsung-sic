@@ -6,6 +6,10 @@ from ocr_auto_page import show_ocr_auto_page
 from db import save_file
 from PIL import Image
 import time
+from info_page import show_info_page
+from style import apply_custom_styles
+
+
 
 
 st.set_page_config(page_title="OCR Document Manager", layout="wide")
@@ -13,8 +17,10 @@ st.set_page_config(page_title="OCR Document Manager", layout="wide")
 PAGES = {
     "📊 Dashboard": show_dashboard_page,
     "📄 Documents": show_documents_page,
-    "⚙️ Automatic OCR": show_ocr_auto_page
+    "⚙️ Automatic OCR": show_ocr_auto_page,
+    "ℹ️ Tentang Proyek": show_info_page
 }
+
 
 st.sidebar.title("Navigation")
 
