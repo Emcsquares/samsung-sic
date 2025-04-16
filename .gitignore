@@ -1,0 +1,28 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.so
+
+# Ignore virtual environments
+.venv/
+env/
+venv/
+
+# Ignore environment variables
+.env
+
+# Ignore Streamlit config and cache
+.streamlit/
+.stcache/
+.stcache/*
+
+# VS Code settings
+.vscode/
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
