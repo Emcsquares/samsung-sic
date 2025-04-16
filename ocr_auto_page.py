@@ -1,5 +1,7 @@
 import streamlit as st
 from db import get_all_files
+from style import apply_custom_styles
+
 
 
 def show_ocr_auto_page():
