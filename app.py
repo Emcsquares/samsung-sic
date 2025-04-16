@@ -11,8 +11,8 @@ import time
 st.set_page_config(page_title="OCR Document Manager", layout="wide")
 
 PAGES = {
-    "📄 Documents": show_documents_page,
     "📊 Dashboard": show_dashboard_page,
+    "📄 Documents": show_documents_page,
     "⚙️ Automatic OCR": show_ocr_auto_page
 }
 

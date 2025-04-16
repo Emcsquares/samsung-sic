@@ -1,5 +1,12 @@
 import streamlit as st
 from db import save_file, get_all_files, download_all_files
+# Add auto-refresh function (requires streamlit_autorefresh)
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    def st_autorefresh(interval, key):
+        # Fallback: no auto-refresh; returns 0 or any default value.
+        return 0
 
 def show_documents_page():
     st.markdown("""
@@ -49,21 +56,31 @@ def show_documents_page():
             save_file(uploaded_file.name, content)
             st.success(f"File '{uploaded_file.name}' saved to database")
 
-    st.subheader("📚 Stored Files")
-    stored_files = get_all_files()
-    if stored_files:
-        for f in stored_files[::-1]:
-            with st.container():
-                st.markdown(f"**📝 {f['filename']}**")
-                st.code(f['content'][:500] + ("..." if len(f['content']) > 500 else ""))
+    # Divide page into two tabs
+    tabs = st.tabs(["Manual OCR Files", "Database Files (Auto Refresh)"])
+    with tabs[0]:
+        st.subheader("Manual OCR Files")
+        # Assuming manual OCR files are saved as .txt from the dashboard process.
+        manual_files = [f for f in get_all_files() if f['filename'].endswith(".txt")]
+        if manual_files:
+            for file in manual_files[::-1]:
+                with st.expander(file["filename"]):
+                    st.code(file["content"])
+        else:
+            st.info("No manual OCR files found.")
 
-    st.title("📄 Documents")
-    st.write("List of OCR documents generated from manual processing:")
-    files = get_all_files()
-    if not files:
-        st.info("No OCR documents found. Please run manual OCR from the Dashboard.")
-        return
-    for file in files:
-        with st.expander(file["filename"]):
-            st.code(file["content"])
+    with tabs[1]:
+        # Auto-refresh this tab every 5 seconds.
+        st_autorefresh(interval=5000, key="db_files_refresh")
+        st.subheader("Database Files (Auto Refresh every 5 seconds)")
+        db_files = [f for f in get_all_files() if f['filename'].endswith(".txt")]
+        if db_files:
+            for file in db_files[::-1]:
+                with st.expander(file["filename"]):
+                    st.code(file["content"])
+        else:
+            st.info("No database OCR files found.")
+
+if __name__ == "__main__":
+    show_documents_page()
 
