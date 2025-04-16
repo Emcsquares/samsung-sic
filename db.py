@@ -1,6 +1,7 @@
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -14,8 +15,23 @@ def save_file(filename, content):
     collection.insert_one(doc)
 
 def get_all_files():
-    return list(collection.find({}, {"_id": 0}))
+    # Return only documents containing a filename using a projection.
+    return [
+        f for f in collection.find({}, {"_id": 0, "filename": 1, "content": 1})
+        if 'filename' in f
+    ]
 
 def download_all_files():
     files = get_all_files()
-    return "\n\n".join([f"{f['filename']}:\n{f['content']}" for f in files])
+    all_files_text = []
+    for f in files:
+        fname = f.get('filename', 'Unknown')
+        content = f.get('content', '')
+        if fname.endswith('.json'):
+            try:
+                parsed = json.loads(content)
+                content = json.dumps(parsed, indent=2)
+            except Exception:
+                pass
+        all_files_text.append(f"{fname}:\n{content}")
+    return "\n\n".join(all_files_text)

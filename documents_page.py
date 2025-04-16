@@ -34,7 +34,7 @@ def show_documents_page():
     st.markdown("### 🗂️ OCR Documents")
 
     stats = get_all_files()
-    last_upload = stats[-1]['filename'] if stats else "N/A"
+    last_upload = stats[-1].get('filename', "N/A") if stats else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
