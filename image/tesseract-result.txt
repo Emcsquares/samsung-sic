@@ -1,0 +1,75 @@
+ho
+lis ’,
+ast,
+Catch»
+ich th
+
+Dati,
+Nd Vy,
+
+Jar, je
+tored
+
+uncle
+
+ely i
+
+sil”
+
+eit!
+ft
+
+6.3
+
+Radix tries 197
+
+point numbers, for instance, there are some edge cases that can produce long
+meaningless paths,'® such as periodic or transcendent numbers, or results of
+certain floating points operations such as 0.1+0.2, due to issues with double pre-
+cision representation.!”
+
+= Tries have memory overhead for nodes and references. As we have seen, some
+implementations require each node to store an array of |X| edges, where & is
+the alphabet used—even if the node has few or no children at all.
+
+In summary, the advice could be to use tries when you have to frequently perform pre-
+fix searches (longest Prefix or keysWithPrefix). Use hash tables when data is stored
+on slow supports like disk or whenever memory locality is important. In all intermedi-
+ate cases, profiling can help you make the best decision.
+
+Tries offer extremely good performance for many string-based operations. Due to
+their structure, though, they are meant to store an array of children for each node.
+This can quickly become expensive. The total number of edges for a trie with n ele-
+ments can swing anywhere between || *n and |Z|*n*m, where m is the average word
+length, depending on the degree of overlap of common prefixes.
+
+We have seen that we can use associative arrays, dictionaries in particular, to imple-
+ment nodes, only storing edges that are not nu11. Of course, this solution comes at a
+cost: not only the cost to access each edge (that can be the cost of hashing the charac-
+ter plus the cost of resolving key conflicts), but also the cost of resizing the dictionary
+when new edges are added.
+
+Radix tries
+
+To overcome these issues with tries, a few alternatives have been developed: the ternary
+search trie (TST), which trades off lower memory usage for worse running time, or the
+radix trie, just to name a few.
+
+While TSTs improve the space requirements to store links, and free us from worry-
+ing about platform-specific implementations to optimize how we store edges, the
+number of nodes we need to create is still on the order of magnitude of the number
+of characters contained in the whole corpus stored, 0(n*m) for n words of average
+length nm.
+
+In tries, most of the nodes don’t store keys and are just hops on a path between a
+key and the ones that extend it. Most of these hops are necessary, but when we store
+long words, they tend to produce long chains of internal nodes, each with just one
+child. As we saw in section 6,2.1, this is the main reason tries need too much space,
+sometimes more than BSTs.
+
+Figure 6.11 shows an example of a trie. Nothing special, just a small, regular trie.
+We can see that intermediate nodes always have children (assuming we prune dan-
+gling branches after deleting keys); sometimes just one child, sometimes more.
+
+See htp://stackoverflow.com/questions/588004/is-floating-pointmath-broken/27030789#27030789,
+"See https://en.wikipedia.org/ ‘wiki /IEEE_floating_point#Basic_formats.
