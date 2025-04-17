@@ -1,6 +1,4 @@
 import streamlit as st
-from style import apply_custom_styles
-
 from db import save_file, get_all_files, download_all_files
 # Add auto-refresh function (requires streamlit_autorefresh)
 try:
@@ -36,7 +34,7 @@ def show_documents_page():
     st.markdown("### 🗂️ OCR Documents")
 
     stats = get_all_files()
-    last_upload = stats[-1]['filename'] if stats else "N/A"
+    last_upload = stats[-1].get('filename', "N/A") if stats else "N/A"
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -59,29 +57,18 @@ def show_documents_page():
             st.success(f"File '{uploaded_file.name}' saved to database")
 
     # Divide page into two tabs
-    tabs = st.tabs(["Manual OCR Files", "Database Files (Auto Refresh)"])
+    tabs = st.tabs(["Manual OCR Files"])
     with tabs[0]:
         st.subheader("Manual OCR Files")
-        # Assuming manual OCR files are saved as .txt from the dashboard process.
-        manual_files = [f for f in get_all_files() if f['filename'].endswith(".txt")]
+        manual_files = [f for f in get_all_files() if f.get('filename', '').endswith(".txt") and f.get('content', '').strip()]
         if manual_files:
             for file in manual_files[::-1]:
-                with st.expander(file["filename"]):
-                    st.code(file["content"])
+                filename = file.get("filename", "Unknown")
+                content = file.get("content", "")
+                with st.expander(filename):
+                    st.code(content)
         else:
             st.info("No manual OCR files found.")
-
-    with tabs[1]:
-        # Auto-refresh this tab every 5 seconds.
-        st_autorefresh(interval=5000, key="db_files_refresh")
-        st.subheader("Database Files (Auto Refresh every 5 seconds)")
-        db_files = [f for f in get_all_files() if f['filename'].endswith(".txt")]
-        if db_files:
-            for file in db_files[::-1]:
-                with st.expander(file["filename"]):
-                    st.code(file["content"])
-        else:
-            st.info("No database OCR files found.")
 
 if __name__ == "__main__":
     show_documents_page()
