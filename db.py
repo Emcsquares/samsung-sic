@@ -6,8 +6,14 @@ import json
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_CA_FILE = os.getenv("MONGO_CA_FILE", None)
+
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5-second timeout
+    client = MongoClient(
+        MONGO_URI,
+        serverSelectionTimeoutMS=5000,  # 5-second timeout
+        tlsCAFile=MONGO_CA_FILE  # Use custom CA file if provided
+    )
     client.admin.command('ping')  # Test connection
     db = client["ocr_docs"]
     collection = db["files"]
