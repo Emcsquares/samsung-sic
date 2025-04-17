@@ -4,3 +4,4 @@ transformers
 pymongo
 streamlit
 python-dotenv
+torch
