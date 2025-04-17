@@ -3,3 +3,4 @@ Pillow
 transformers
 pymongo
 streamlit
+python-dotenv
