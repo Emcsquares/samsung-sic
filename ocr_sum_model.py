@@ -3,25 +3,22 @@ import pytesseract
 from transformers import pipeline
 import time
 import os
-import json  # added for JSON support
-
-# Add dotenv for environment variable loading
+import json
+from gtts import gTTS
+import subprocess
 from dotenv import load_dotenv
-
-# Add pymongo for MongoDB integration
 from pymongo import MongoClient
 
-# Load environment variables from .env file
 load_dotenv()
 
 TXT_PATH = './output.txt'
-JSON_PATH = './output.json'  # added JSON output path
+JSON_PATH = './output.json' 
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('MONGO_DB_NAME', 'ocr_docs')
 COLLECTION = os.getenv('MONGO_COLLECTION', 'files')
 
 # ESP camera URL
-esp_cam = "http://192.168.130.70:4747/video"
+esp_cam = "http://192.168.1.137:4747/video"
 
 # Initialize the summarization pipeline
 summarizer = pipeline("summarization", model="facebook/bart-large-cnn", framework="pt")
@@ -49,17 +46,17 @@ def append_result_to_json(full_text, processed_result, processing_time):
     with open(JSON_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(data) + "\n")
 
-    client = MongoClient(MONGO_URI, tls=True,
-    tlsAllowInvalidCertificates=False)
-    try:
-        db = client[DB_NAME]
-        collection = db[COLLECTION]
-        collection.insert_one(data)
-        print("Result sent to MongoDB")
-        # Clear the JSON file after uploading to avoid duplicate uploads
-        open(JSON_PATH, 'w').close()  
-    finally:
-        client.close()
+    # client = MongoClient(MONGO_URI, tls=True,
+    # tlsAllowInvalidCertificates=False)
+    # try:
+    #     db = client[DB_NAME]
+    #     collection = db[COLLECTION]
+    #     collection.insert_one(data)
+    #     print("Result sent to MongoDB")
+    #     # Clear the JSON file after uploading to avoid duplicate uploads
+    #     open(JSON_PATH, 'w').close()  
+    # finally:
+    #     client.close()
 
 # Function to send JSON to MongoDB instead of TXT
 # def send_txt_to_mongo():
@@ -98,6 +95,39 @@ def process_text(text):
         summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
         return summary[0]['summary_text']
 
+def speak_text(text):
+    tts = gTTS(text=text, lang='en')
+    temp_file = "temp.mp3"
+    tts.save(temp_file)
+    
+    # Open the audio file in the default media player
+    if os.name == 'nt':  # Windows
+        os.system(f'start {temp_file}')
+    elif os.name == 'posix':  # macOS/Linux
+        os.system(f'open {temp_file}')  # macOS
+        os.system(f'xdg-open {temp_file}')  # Linux
+
+    time.sleep(20) 
+    os.remove(temp_file)
+
+    # try:
+    #     # Open the audio file in the default media player
+    #     if os.name == 'nt':  # Windows
+    #         process = subprocess.Popen(['start', temp_file], shell=True)
+    #         process.wait()
+    #     elif os.name == 'posix':  # macOS/Linux
+    #         if 'darwin' in os.uname().sysname.lower():  # macOS
+    #             process = subprocess.Popen(['open', temp_file])
+    #         else:  # Linux
+    #             process = subprocess.Popen(['xdg-open', temp_file])
+    #         process.wait() 
+    # except Exception as e:
+    #     print(f"Error playing audio: {e}")
+    # finally:
+    #     if os.path.exists(temp_file):
+    #         os.remove(temp_file)
+
+
 # Start video capture
 cap = cv2.VideoCapture(esp_cam)
 
@@ -122,17 +152,14 @@ try:
         # Display the video feed
         cv2.imshow("Video Feed", frame)
 
-        # Crop the frame to exclude metadata overlay
-        # Adjust the cropping coordinates based on your video feed
         height, width, _ = frame.shape
-        cropped_frame = frame[int(height * 0.2):, :]  # Crop the top 20% of the frame
+        cropped_frame = frame[int(height * 0.2):, :]
 
-        # Perform OCR on the cropped frame
         extracted_text = pytesseract.image_to_string(cropped_frame)
 
         # Process the extracted text
         if extracted_text.strip():
-            process_start_time = time.time()  # start processing time measurement
+            process_start_time = time.time() 
             result = process_text(extracted_text.strip())
             process_end_time = time.time()
             processing_time = process_end_time - process_start_time
@@ -141,6 +168,7 @@ try:
                 print(extracted_text.strip())
                 print("Processed result:")
                 print(result)
+                speak_text("Audio support: " + result)
                 # Save to JSON file
                 append_result_to_json(extracted_text.strip(), result, processing_time)
 
@@ -158,11 +186,9 @@ except KeyboardInterrupt:
     print("Video capture stopped by user.")
 
 finally:
-    # Release the video capture object and close all OpenCV windows
     cap.release()
     cv2.destroyAllWindows()
     print("Video capture ended.")
-    # Optionally, send one last upload at the end
     # send_txt_to_mongo()
 
 
