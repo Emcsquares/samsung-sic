@@ -1,5 +1,6 @@
 import streamlit as st
 import uuid  # Import the uuid module for generating unique identifiers
+import torch
 
 st.set_page_config(page_title="OCR Document Manager", layout="wide")
 
@@ -15,7 +16,15 @@ from style import apply_custom_styles
 import pytesseract
 from transformers import pipeline
 
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn", framework="pt")
+# Determine the device (use GPU if available, otherwise CPU)
+device = 0 if torch.cuda.is_available() else -1
+
+summarizer = pipeline(
+    "summarization",
+    model="facebook/bart-large-cnn",
+    framework="pt",
+    device=device  # Explicitly specify the device
+)
 
 PAGES = {
     "📊 Dashboard": show_dashboard_page,

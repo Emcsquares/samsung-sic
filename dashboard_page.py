@@ -4,8 +4,19 @@ from PIL import Image
 import pytesseract
 import time
 from transformers import pipeline
+import torch
+from db import save_file  # Import save_file
 
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn", framework="pt")
+# Determine the device (use GPU if available, otherwise CPU)
+device = 0 if torch.cuda.is_available() else -1
+
+summarizer = pipeline(
+    "summarization",
+    model="facebook/bart-large-cnn",
+    framework="pt",
+    device=device,  # Explicitly specify the device
+    clean_up_tokenization_spaces=False
+)
 
 def show_dashboard_page():
     apply_custom_styles()

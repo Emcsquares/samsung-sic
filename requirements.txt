@@ -1,10 +1,10 @@
 pytesseract
 Pillow
-transformers
+transformers>=4.30.0
 pymongo[srv]
 streamlit
 python-dotenv
-torch
+torch>=2.0.0
 tqdm  # Required by transformers
 numpy  # Required by transformers and PyTorch
 opencv-python-headless  # Required for OpenCV functionality
