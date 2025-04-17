@@ -5,3 +5,6 @@ pymongo
 streamlit
 python-dotenv
 torch
+tqdm  # Required by transformers
+numpy  # Required by transformers and PyTorch
+opencv-python-headless  # Required for OpenCV functionality
