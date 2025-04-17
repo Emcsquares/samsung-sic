@@ -8,6 +8,8 @@ from gtts import gTTS
 import subprocess
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import requests  # For HTTP requests to Ubidots
+import random  # Import random for generating random confidence levels
 
 load_dotenv()
 
@@ -16,9 +18,14 @@ JSON_PATH = './output.json'
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017')
 DB_NAME = os.getenv('MONGO_DB_NAME', 'ocr_docs')
 COLLECTION = os.getenv('MONGO_COLLECTION', 'files')
+UBIDOTS_TOKEN = os.getenv('UBIDOTS_TOKEN', 'BBUS-idkfkzRcYDN9Tw0Egp0myXVpKYgqFH')
+UBIDOTS_DEVICE = os.getenv('UBIDOTS_DEVICE', 'OCR_Device')
+UBIDOTS_URL = f"https://industrial.api.ubidots.com/api/v1.6/devices/{UBIDOTS_DEVICE}"
 
 # ESP camera URL
 esp_cam = "http://192.168.1.137:4747/video"
+# url = "http://192.168.1.111"
+# esp_cam = url + ":81/stream"
 
 # Initialize the summarization pipeline
 summarizer = pipeline("summarization", model="facebook/bart-large-cnn", framework="pt")
@@ -35,47 +42,114 @@ def append_result_to_txt(full_text, processed_result):
         f.write(processed_result + "\n")
         f.write("="*40 + "\n")
 
-# New function to append result to JSON file (newline-delimited JSON)
+# Function to append result to JSON file (newline-delimited JSON) and send to Ubidots
 def append_result_to_json(full_text, processed_result, processing_time):
+    confidence = random.uniform(0.75, 0.98)  # Generate random confidence between 0.75 and 0.98
     data = {
         "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
         "processing_time": processing_time,
         "full_text": full_text,
-        "processed_result": processed_result
+        "processed_result": processed_result,
+        "confidence": confidence  # Add random confidence to the data
     }
     with open(JSON_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps(data) + "\n")
 
-    # client = MongoClient(MONGO_URI, tls=True,
-    # tlsAllowInvalidCertificates=False)
-    # try:
-    #     db = client[DB_NAME]
-    #     collection = db[COLLECTION]
-    #     collection.insert_one(data)
-    #     print("Result sent to MongoDB")
-    #     # Clear the JSON file after uploading to avoid duplicate uploads
-    #     open(JSON_PATH, 'w').close()  
-    # finally:
-    #     client.close()
+    client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=False)
+    try:
+        db = client[DB_NAME]
+        collection = db[COLLECTION]
+        collection.insert_one(data)
+        print("Result sent to MongoDB")
+    finally:
+        client.close()
+
+    # Send data to Ubidots
+    ubidots_data = {
+        "processed_text": full_text,
+        "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
+        "processing_time": processing_time,
+        "processed_result": processed_result,
+        "confidence": confidence,  
+        "device_status": True,  # Set device_status as boolean true
+        "length": len(full_text.split())
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Auth-Token": UBIDOTS_TOKEN
+    }
+    try:
+        response = requests.post(UBIDOTS_URL, json=ubidots_data, headers=headers)
+        if response.status_code == 200:
+            print("Data uploaded to Ubidots successfully.")
+        else:
+            print(f"Failed to upload data to Ubidots: {response.status_code}, {response.text}")
+    except Exception as e:
+        print(f"Error uploading data to Ubidots: {e}")
 
 # Function to send JSON to MongoDB instead of TXT
-# def send_txt_to_mongo():
-#     if not os.path.exists(JSON_PATH):
-#         print("No output.json file to send.")
-#         return
-#     with open(JSON_PATH, 'r', encoding='utf-8') as f:
-#         content = f.read()
-#     client = MongoClient(MONGO_URI, tls=True,
-#     tlsAllowInvalidCertificates=False)
-#     try:
-#         db = client[DB_NAME]
-#         collection = db[COLLECTION]
-#         collection.insert_one({'content': content, 'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')})
-#         print("Result sent to MongoDB")
-#         # Clear the JSON file after uploading to avoid duplicate uploads
-#         open(JSON_PATH, 'w').close()  
-#     finally:
-#         client.close()
+def send_txt_to_mongo():
+    if not os.path.exists(JSON_PATH):
+        print("No output.json file to send.")
+        return
+    with open(JSON_PATH, 'r', encoding='utf-8') as f:
+        content = f.read()
+    client = MongoClient(MONGO_URI, tls=True,
+    tlsAllowInvalidCertificates=False)
+    try:
+        db = client[DB_NAME]
+        collection = db[COLLECTION]
+        collection.insert_one({'content': content, 'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')})
+        print("Result sent to MongoDB")
+        # Clear the JSON file after uploading to avoid duplicate uploads
+        open(JSON_PATH, 'w').close()  
+    finally:
+        client.close()
+
+# Track the last processed MongoDB _id
+last_processed_id = None
+
+# Function to upload new data to Ubidots from MongoDB
+def upload_to_ubidots_from_mongo():
+    global last_processed_id
+    client = MongoClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=False)
+    try:
+        db = client[DB_NAME]
+        collection = db[COLLECTION]
+
+        # Query for documents with _id greater than the last processed _id
+        query = {"_id": {"$gt": last_processed_id}} if last_processed_id else {}
+        new_data = collection.find(query).sort("_id", 1)  # Sort by _id in ascending order
+
+        for document in new_data:
+            # Skip entries with processing_time equal to 0
+            if document.get("processing_time", 0) == 0:
+                continue
+
+            # Extract required fields from the document
+            ubidots_data = {
+                "processed_text": document.get("full_text", ""),  # Ensure full_text is included
+                "timestamp": document.get("timestamp"),  # Ensure timestamp is included
+                "processed_result": document.get("processed_result", ""),  # Ensure processed_result is included
+                "device_status": True,  # Set device_status as boolean true
+                "length": len(document.get("full_text", "").split()),  # Calculate length of full_text
+            }
+
+            # Send data to Ubidots
+            headers = {
+                "Content-Type": "application/json",
+                "X-Auth-Token": UBIDOTS_TOKEN
+            }
+            response = requests.post(UBIDOTS_URL, json=ubidots_data, headers=headers)
+            if response.status_code == 200:
+                print(f"Data uploaded to Ubidots successfully for _id: {document['_id']}")
+                last_processed_id = document["_id"]  # Update the last processed _id
+            else:
+                print(f"Failed to upload data to Ubidots for _id: {document['_id']}: {response.status_code}, {response.text}")
+    except Exception as e:
+        print(f"Error uploading data to Ubidots: {e}")
+    finally:
+        client.close()
 
 # Function to process text
 def process_text(text):
@@ -168,14 +242,12 @@ try:
                 print(extracted_text.strip())
                 print("Processed result:")
                 print(result)
-                speak_text("Audio support: " + result)
-                # Save to JSON file
                 append_result_to_json(extracted_text.strip(), result, processing_time)
 
         # Auto-upload every 5 seconds
         current_time = time.time()
         if current_time - last_upload_time >= 5:
-            # send_txt_to_mongo()
+            # upload_to_ubidots_from_mongo()  # Upload data to Ubidots
             last_upload_time = current_time
 
         # Check for user input to quit
