@@ -1,5 +1,9 @@
-# app.py
 import streamlit as st
+import uuid  # Import the uuid module for generating unique identifiers
+
+st.set_page_config(page_title="OCR Document Manager", layout="wide")
+
+# app.py
 from documents_page import show_documents_page
 from dashboard_page import show_dashboard_page
 from ocr_auto_page import show_ocr_auto_page
@@ -8,11 +12,10 @@ from PIL import Image
 import time
 from info_page import show_info_page
 from style import apply_custom_styles
+import pytesseract
+from transformers import pipeline
 
-
-
-
-st.set_page_config(page_title="OCR Document Manager", layout="wide")
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn", framework="pt")
 
 PAGES = {
     "📊 Dashboard": show_dashboard_page,
@@ -58,74 +61,69 @@ for page_name in PAGES:
 
 # Optional timer for long-running tasks (OCR simulation)
 if st.session_state["current_page"] == "📊 Dashboard":
-    st.header("🕒 OCR + Summary Timer")
+    st.header("🕒 Submit Image for Text Recognition + Summary")
 
     uploaded_image = st.file_uploader("Upload an image (JPG/PNG) for OCR", type=["jpg", "jpeg", "png"])
 
     if uploaded_image:
-        img = Image.open(uploaded_image)
-        st.image(img, caption="Uploaded Image", use_column_width=True)
+        try:
+            # Load and process the image
+            img = Image.open(uploaded_image)
+            img = img.convert("RGB")  # Ensure the image is in RGB format
 
-        # Add a fake OCR function to simulate text extraction without tesseract.
-        def fake_ocr(img):
-            # Simulated OCR extraction logic.
-            return "Simulated OCR text from image. Tesseract is not used."
+            if st.button("Process Image", key="process_image_button"):
+                with st.spinner("🔍 Extracting text..."):
+                    start_time = time.time()
+                    extracted_text = pytesseract.image_to_string(img)
+                    process_time = time.time() - start_time  # Measure processing time
 
-        if st.button("Preview Extracted Text"):
-            with st.spinner("🔍 Extracting text..."):
-                # Replace tesseract call with fake_ocr function call.
-                extracted_text = fake_ocr(img)
-                st.session_state["extracted_text_preview"] = extracted_text
+                    if extracted_text.strip():
+                        # Summarize the text if it's long
+                        if len(extracted_text.split()) > 20:
+                            try:
+                                with st.spinner("📝 Summarizing text..."):
+                                    summary = summarizer(extracted_text, max_length=130, min_length=30, do_sample=False)
+                                    summarized_text = summary[0]['summary_text']
+                                st.session_state["summarized_text"] = summarized_text
+                            except Exception as e:
+                                st.error(f"Error summarizing the text: {e}")
+                        else:
+                            st.session_state["summarized_text"] = extracted_text
 
-        if "extracted_text_preview" in st.session_state:
-            st.subheader("📄 Extracted Text Preview")
-            st.code(st.session_state["extracted_text_preview"][:2000] + ("..." if len(st.session_state["extracted_text_preview"]) > 2000 else ""))
-            if st.button("Save OCR Result"):
-                save_file(f"{uploaded_image.name}.txt", st.session_state["extracted_text_preview"])
-                st.success(f"✅ OCR text saved as '{uploaded_image.name}.txt'")
-                del st.session_state["extracted_text_preview"]
+                        st.session_state["process_time"] = process_time  # Store processing time
+                        # Generate a unique filename with a 5-character UUID
+                        unique_filename = f"{uuid.uuid4().hex[:5]}_{uploaded_image.name}"
+                        st.session_state["uploaded_image_name"] = unique_filename
+                        st.success(f"✅ Text processing completed in {process_time:.2f} seconds!")
+                    else:
+                        st.warning("⚠️ No text detected in the image. Please try another image.")
+        except Exception as e:
+            st.error(f"Error processing the image: {e}")
 
-    if "ocr_running" not in st.session_state:
-        st.session_state.ocr_running = False
-    if "ocr_stop" not in st.session_state:
-        st.session_state.ocr_stop = False
+    # Display extracted and summarized text
+    if "summarized_text" in st.session_state:
+        st.subheader("📋 Summarized Text")
+        st.code(st.session_state["summarized_text"])
 
-    progress_bar = st.empty()
-    status_text = st.empty()
+        # Show download button
+        st.download_button(
+            label="Download Summarized Text",
+            data=st.session_state["summarized_text"],
+            file_name=f"{st.session_state.get('uploaded_image_name', 'output')}_summary.txt",
+            mime="text/plain",
+        )
 
-    if not st.session_state.ocr_running:
-        if st.button("Start OCR Process"):
-            st.session_state.ocr_running = True
-            st.session_state.ocr_stop = False
-
-    if st.session_state.ocr_running:
-        stop_btn = st.button("Stop Process", key="stop")
-        start = time.time()
-
-        for i in range(100):
-            if stop_btn:
-                st.session_state.ocr_stop = True
-
-            if st.session_state.ocr_stop:
-                status_text.warning("⚠️ OCR process manually stopped.")
-                st.session_state.ocr_running = False
-                break
-
-            if time.time() - start > 10:
-                status_text.error("❌ OCR process timed out.")
-                st.session_state.ocr_running = False
-                break
-
-            time.sleep(0.05)
-            progress_bar.progress((i + 1) / 100)
-            status_text.info(f"🔄 Processing... {i + 1}%")
-
-        else:
-            end = time.time()
-            status_text.success(f"✅ Completed in {end - start:.2f} seconds")
-            st.balloons()
-            st.session_state.ocr_running = False
-            st.session_state.ocr_stop = False
+        # Save the result to the database
+        if st.button("Save Result", key=f"save_result_button_{st.session_state.get('uploaded_image_name', 'unknown_file')}"):
+            try:
+                save_file(
+                    st.session_state.get("uploaded_image_name", "unknown_file"),
+                    st.session_state["summarized_text"],
+                    process_time=st.session_state["process_time"],  # Include processing time
+                )
+                st.success(f"✅ Result saved for '{st.session_state.get('uploaded_image_name', 'unknown_file')}'")
+            except Exception as e:
+                st.error(f"Error saving the result: {e}")
 
 # Load selected page
 page = PAGES[st.session_state["current_page"]]

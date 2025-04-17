@@ -28,6 +28,10 @@ def show_documents_page():
             font-weight: bold;
             color: #fff;
         }
+        .last-upload {
+            font-size: 1rem; /* Adjusted font size for Last Upload */
+            color: #fff;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -40,7 +44,7 @@ def show_documents_page():
     with col1:
         st.markdown(f"<div class='metric-card'><div class='metric-label'>Uploaded Files</div><div class='metric-value'>{len(stats)}</div></div>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"<div class='metric-card'><div class='metric-label'>Last Upload</div><div class='metric-value'>{last_upload}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><div class='metric-label'>Last Upload</div><div class='last-upload'>{last_upload}</div></div>", unsafe_allow_html=True)
     with col3:
         st.markdown("<div class='metric-card'><div class='metric-label'>File Format</div><div class='metric-value'>json / txt</div></div>", unsafe_allow_html=True)
     with col4:
@@ -69,6 +73,30 @@ def show_documents_page():
                     st.code(content)
         else:
             st.info("No manual OCR files found.")
+
+    st.title("📄 Documents - Manual OCR Results")
+
+    # Fetch all saved files from MongoDB
+    files = [file for file in get_all_files() if file.get("other_info") == "manual"]  # Filter for manual files
+
+    if files:
+        for index, file in enumerate(files):  # Add an index to ensure unique keys
+            filename = file.get("filename", "Unknown File")
+            content = file.get("content", "No content available.")
+            process_time = file.get("process_time", "N/A")
+
+            st.subheader(f"📄 {filename}")
+            st.text(f"Processing Time: {process_time} seconds")
+            st.code(content)
+            st.download_button(
+                label="Download File",
+                data=content,
+                file_name=filename,
+                mime="text/plain",
+                key=f"download_button_{index}"  # Unique key for each button
+            )
+    else:
+        st.info("No documents found. Please process and save OCR results.")
 
 if __name__ == "__main__":
     show_documents_page()
