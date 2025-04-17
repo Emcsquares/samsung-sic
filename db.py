@@ -13,6 +13,7 @@ try:
         serverSelectionTimeoutMS=5000  # 5-second timeout
     )
     client.admin.command('ping')  # Test connection
+    print("MongoDB connection successful!")
     db = client["ocr_docs"]
     collection = db["files"]
 except Exception as e:
@@ -35,13 +36,13 @@ def save_file(filename, content, process_time=None, other_info="manual"):
 
 def get_all_files():
     if collection is not None:  # Explicitly check for None
-        files = list(collection.find({"content": {"$ne": ""}, "filename": {"$ne": ""}}, {"_id": 0}))
-        # Ensure all files have the required keys
-        for file in files:
-            file.setdefault("filename", "Unknown File")
-            file.setdefault("content", "No content available.")
-            file.setdefault("process_time", "N/A")
-        return files
+        try:
+            files = list(collection.find({"content": {"$ne": ""}, "filename": {"$ne": ""}}, {"_id": 0}))
+            print(f"Retrieved {len(files)} files from MongoDB.")
+            return files
+        except Exception as e:
+            print(f"Error retrieving files: {e}")
+            return []
     else:
         print("MongoDB connection is not available.")
         return []
