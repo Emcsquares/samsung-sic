@@ -71,6 +71,7 @@ for page_name in PAGES:
 # Optional timer for long-running tasks (OCR simulation)
 if st.session_state["current_page"] == "📊 Dashboard":
     st.header("🕒 Submit Image for Text Recognition + Summary")
+    st.subheader("It works better on dekstop (We didn't recommend to use android/ios base device.)")
 
     uploaded_image = st.file_uploader("Upload an image (JPG/PNG) for OCR", type=["jpg", "jpeg", "png"])
 
