@@ -3,19 +3,23 @@ from style import apply_custom_styles
 from PIL import Image
 import pytesseract
 import time
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from db import save_file  # Import save_file
 
 # Determine the device (use GPU if available, otherwise CPU)
-device = 0 if torch.cuda.is_available() else -1
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load the summarization model and tokenizer explicitly
+tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn").to(device)
 
 summarizer = pipeline(
     "summarization",
-    model="facebook/bart-large-cnn",
+    model=model,
+    tokenizer=tokenizer,
     framework="pt",
-    device=device,  # Explicitly specify the device
-    clean_up_tokenization_spaces=False
+    device=0 if torch.cuda.is_available() else -1  # Explicitly specify the device
 )
 
 def show_dashboard_page():
